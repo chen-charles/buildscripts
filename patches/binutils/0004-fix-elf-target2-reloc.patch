@@ -1,0 +1,14 @@
+diff --git a/ld/emulparams/armelf.sh b/ld/emulparams/armelf.sh
+index 24ca8ed59d0..826bd754832 100644
+--- a/ld/emulparams/armelf.sh
++++ b/ld/emulparams/armelf.sh
+@@ -44,6 +44,9 @@ MAXPAGESIZE="CONSTANT (MAXPAGESIZE)"
+ ENTRY=_start
+ EMBEDDED=yes
+ 
++# R_ARM_TARGET2 -> R_ARM_GOT_PREL
++TARGET2_TYPE=got-rel
++
+ # This sets the stack to the top of the simulator memory (2^19 bytes).
+ STACK_ADDR=0x80000
+ 

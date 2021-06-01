@@ -1,15 +1,14 @@
-# First stage of Dockerfile
-FROM alpine:3.12
+FROM ubuntu:focal
+
+RUN DEBIAN_FRONTEND="noninteractive" apt update
+RUN DEBIAN_FRONTEND="noninteractive" apt install -y cmake git build-essential autoconf texinfo bison flex pkg-config wget bash
 
 COPY . /src
+RUN mkdir build && cd build && cmake ../src && make -j$(nproc)
 
-RUN apk add build-base cmake git bash autoconf texinfo patch pkgconfig
-RUN cd /src && mkdir build && cd build && cmake .. && make -j$(nproc)
-
-# Second stage of Dockerfile
-FROM alpine:latest  
+FROM ubuntu:focal
 
 ENV VITASDK /home/user/vitasdk
 ENV PATH ${VITASDK}/bin:$PATH
 
-COPY --from=0 /src/build/vitasdk ${VITASDK}
+COPY --from=0 /build/vitasdk ${VITASDK}

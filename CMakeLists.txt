@@ -32,8 +32,8 @@ set(MPC_HASH SHA256=6985c538143c1208dcb1ac42cedad6ff52e267b47e5f970183a3e75125b4
 set(ISL_VERSION 0.21)
 set(ISL_HASH SHA256=777058852a3db9500954361e294881214f6ecd4b594c00da5eee974cd6a54960)
 
-set(EXPAT_VERSION 2.3.0)
-set(EXPAT_HASH SHA256=f122a20eada303f904d5e0513326c5b821248f2d4d2afbf5c6f1339e511c0586)
+set(EXPAT_VERSION 2.4.1)
+set(EXPAT_HASH SHA256=2f9b6a580b94577b150a7d5617ad4643a4301a6616ff459307df3e225bcfbf40)
 
 set(BINUTILS_VERSION 2.34)
 set(BINUTILS_HASH SHA256=f00b0e8803dc9bab1e2165bd568528135be734df3fabf8d0161828cd56028952)
@@ -43,7 +43,7 @@ set(GDB_HASH SHA256=360cd7ae79b776988e89d8f9a01c985d0b1fa21c767a4295e5f88cb49175
 
 # Branches to fetch the different project targets. Can be overriden from command line.
 set(LIBZIP_TAG master CACHE STRING "libzip branch name, commit id or tag")
-set(NEWLIB_TAG vita CACHE STRING "newlib branch name, commit id or tag")
+set(NEWLIB_TAG 4.1.0 CACHE STRING "newlib branch name, commit id or tag")
 set(SAMPLES_TAG master CACHE STRING "samples branch name, commit id or tag")
 set(HEADERS_TAG master CACHE STRING "vita-headers branch name, commit id or tag")
 set(TOOLCHAIN_TAG master CACHE STRING "vita-toolchain branch name, commit id or tag")
@@ -298,10 +298,7 @@ function(toolchain_deps toolchain_deps_dir toolchain_install_dir toolchain_suffi
         URL https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz
         URL_HASH ${BINUTILS_HASH}
         DOWNLOAD_DIR ${DOWNLOAD_DIR}
-        PATCH_COMMAND
-            patch -d <SOURCE_DIR> -p3 -t -N < ${PROJECT_SOURCE_DIR}/patches/binutils/0001-vita.patch
-            && patch -d <SOURCE_DIR> -p1 -t -N < ${PROJECT_SOURCE_DIR}/patches/binutils/0002-fix-broken-reloc.patch
-            && patch -d <SOURCE_DIR> -p3 -t -N < ${PROJECT_SOURCE_DIR}/patches/binutils/0003-fix-elf-vaddr.patch
+        PATCH_COMMAND bash -c "find ${PROJECT_SOURCE_DIR}/patches/binutils -type f -name '*.patch' -print0 | sort -z | xargs -t -0 -n 1 patch -d <SOURCE_DIR> -N -t -p1 -i"
         CONFIGURE_COMMAND ${compiler_flags} ${wrapper_command} <SOURCE_DIR>/configure
         --build=${build_native}
         --host=${toolchain_host}
@@ -418,10 +415,10 @@ list(APPEND compiler_target_tools
 
 # Compilers used to build pthread-embedded (no need to override PATH with this)
 list(APPEND pthread_tools
-    CC=${binutils_prefix}-gcc
-    CXX=${binutils_prefix}-g++
-    AR=${binutils_prefix}-ar
-    )
+CC=${binutils_prefix}-gcc
+CXX=${binutils_prefix}-g++
+AR=${binutils_prefix}-ar
+)
 
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND ${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     # GCC on OSX (Clang in diguise) needs more bracket nesting depth to compile gcc
@@ -437,11 +434,10 @@ set(common_gcc_configure_args
     --disable-libgomp
     --disable-libmudflap
     --disable-libquadmath
-    --disable-libssp
     --disable-libstdcxx-pch
     --disable-nls
-    --disable-shared
     --disable-tls
+    --enable-symvers=no
     --with-gnu-as
     --with-gnu-ld
     --with-newlib
@@ -464,7 +460,7 @@ ExternalProject_add(gcc-base
     URL http://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
     URL_HASH ${GCC_HASH}
     DOWNLOAD_DIR ${DOWNLOAD_DIR}
-    PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${PROJECT_SOURCE_DIR}/patches/gcc/0001-gcc-8.patch
+    PATCH_COMMAND bash -c "find ${PROJECT_SOURCE_DIR}/patches/gcc -type f -name '*.patch' -print0 | sort -z | xargs -t -0 -n 1 patch -d <SOURCE_DIR> -N -t -p1 -i"
     CONFIGURE_COMMAND ${compiler_flags} ${wrapper_command} <SOURCE_DIR>/configure
     --build=${build_native}
     # compile a native compiler so keep host == build
@@ -482,10 +478,11 @@ ExternalProject_add(gcc-base
     ${common_gcc_configure_args}
     --disable-threads
     --without-headers
+    --disable-shared
     "CFLAGS=${GCC_CFLAGS}"
     "CXXFLAGS=${GCC_CFLAGS}"
-    BUILD_COMMAND $(MAKE) all-gcc
-    INSTALL_COMMAND $(MAKE) install-gcc
+    BUILD_COMMAND $(MAKE) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0" all-gcc all-target-libgcc
+    INSTALL_COMMAND $(MAKE) install-gcc install-target-libgcc
     )
 
 ExternalProject_add(vita-headers
@@ -515,13 +512,13 @@ ExternalProject_add(vita-headers
     )
 
 ExternalProject_Add(newlib
-    DEPENDS binutils_${target_suffix} gcc-base vita-headers
-    GIT_REPOSITORY https://github.com/vitasdk/newlib
+    DEPENDS binutils_${target_suffix} gcc-base # vita-headers # newlib should not depend on sce-functions
+    GIT_REPOSITORY https://github.com/chen-charles/psp2cldr-newlib
     GIT_TAG ${NEWLIB_TAG}
     ${GIT_SHALLOW_SUPPORT}
     # Pass the compiler_target_tools here so newlib picks up the fresh gcc-base compiler
     CONFIGURE_COMMAND ${compiler_flags} ${toolchain_tools} ${compiler_target_tools}
-    ${wrapper_command} <SOURCE_DIR>/configure "CFLAGS_FOR_TARGET=-g -O2 -ffunction-sections -fdata-sections"
+    ${wrapper_command} <SOURCE_DIR>/configure "CFLAGS_FOR_TARGET=-g -O2 -fPIC -ffunction-sections -fdata-sections -D_LDBL_EQ_DBL"
     --build=${build_native}
     --host=${host_native}
     --target=${target_arch}
@@ -530,12 +527,20 @@ ExternalProject_Add(newlib
     --with-build-sysroot=${CMAKE_INSTALL_PREFIX}/${target_arch}
     --enable-newlib-io-long-long
     --enable-newlib-register-fini
+    --enable-newlib-mb
     --disable-newlib-supplied-syscalls
     --disable-nls
     BUILD_COMMAND ${compiler_flags} ${toolchain_tools} ${wrapper_command} $(MAKE)
+
     INSTALL_COMMAND $(MAKE) install DESTDIR=${CMAKE_INSTALL_PREFIX}
+    COMMAND ${toolchain_build_install_dir}/bin/${target_arch}-gcc -shared -o ${CMAKE_INSTALL_PREFIX}/${target_arch}/lib/libc.so -Wl,--hash-style=sysv,--whole-archive ${CMAKE_INSTALL_PREFIX}/${target_arch}/lib/libc.a -nostdlib -Wl,--no-whole-archive -lgcc ${CMAKE_INSTALL_PREFIX}/${target_arch}/lib/libc.a
+    COMMAND ${toolchain_build_install_dir}/bin/${target_arch}-gcc -shared -o ${CMAKE_INSTALL_PREFIX}/${target_arch}/lib/libm.so -Wl,--hash-style=sysv,--whole-archive ${CMAKE_INSTALL_PREFIX}/${target_arch}/lib/libm.a -nostdlib -Wl,--no-whole-archive -lgcc ${CMAKE_INSTALL_PREFIX}/${target_arch}/lib/libm.a
+
     # Install a copy of newlib in the toolchain directory (required for pthread-embedded target)
     COMMAND $(MAKE) install DESTDIR=${toolchain_build_install_dir}
+    COMMAND ${toolchain_build_install_dir}/bin/${target_arch}-gcc -shared -o ${toolchain_build_install_dir}/${target_arch}/lib/libc.so -Wl,--hash-style=sysv,--whole-archive ${toolchain_build_install_dir}/${target_arch}/lib/libc.a -nostdlib -Wl,--no-whole-archive -lgcc ${toolchain_build_install_dir}/${target_arch}/lib/libc.a
+    COMMAND ${toolchain_build_install_dir}/bin/${target_arch}-gcc -shared -o ${toolchain_build_install_dir}/${target_arch}/lib/libm.so -Wl,--hash-style=sysv,--whole-archive ${toolchain_build_install_dir}/${target_arch}/lib/libm.a -nostdlib -Wl,--no-whole-archive -lgcc ${toolchain_build_install_dir}/${target_arch}/lib/libm.a
+
     # Save the commit id for tracking purposes
     COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> rev-parse HEAD > ${CMAKE_BINARY_DIR}/newlib-version.txt
     ${UPDATE_DISCONNECTED_SUPPORT}
@@ -549,7 +554,7 @@ if(CMAKE_TOOLCHAIN_FILE)
         URL http://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
         URL_HASH ${GCC_HASH}
         DOWNLOAD_DIR ${DOWNLOAD_DIR}
-        PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${PROJECT_SOURCE_DIR}/patches/gcc/0001-gcc-8.patch
+        PATCH_COMMAND bash -c "find ${PROJECT_SOURCE_DIR}/patches/gcc -type f -name '*.patch' -print0 | sort -z | xargs -t -0 -n 1 patch -d <SOURCE_DIR> -N -t -p1 -i"
         CONFIGURE_COMMAND ${compiler_flags} ${toolchain_tools}
         ${wrapper_command} <SOURCE_DIR>/configure
         --build=${build_native}
@@ -568,6 +573,7 @@ if(CMAKE_TOOLCHAIN_FILE)
         ${common_gcc_configure_args}
         --disable-threads
         --with-headers=yes
+        --disable-shared
         "CFLAGS=${GCC_CFLAGS}"
         "CXXFLAGS=${GCC_CFLAGS}"
         BUILD_COMMAND ${toolchain_tools} ${wrapper_command} $(MAKE) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"
@@ -581,16 +587,16 @@ else()
 endif()
 
 ExternalProject_Add(pthread-embedded
-    DEPENDS binutils_${target_suffix} gcc-base newlib vita-headers
-    GIT_REPOSITORY https://github.com/vitasdk/pthread-embedded
+    DEPENDS binutils_${target_suffix} ${GCC_DEPENDS} newlib
+    GIT_REPOSITORY https://github.com/chen-charles/pthread-embedded
     GIT_TAG ${PTHREAD_TAG}
     ${GIT_SHALLOW_SUPPORT}
     # TODO: this project should have a proper makefile to support out-of-source builds
     BUILD_IN_SOURCE 1
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ${compiler_flags} ${wrapper_command} $(MAKE)
-    -C <SOURCE_DIR>/platform/vita ${pthread_tools} PREFIX=${CMAKE_INSTALL_PREFIX}
-    INSTALL_COMMAND $(MAKE) -C <SOURCE_DIR>/platform/vita PREFIX=${CMAKE_INSTALL_PREFIX}/${target_arch} install
+    -C <SOURCE_DIR>/platform/vita ${pthread_tools} PREFIX=${CMAKE_INSTALL_PREFIX} all
+    INSTALL_COMMAND $(MAKE) -C <SOURCE_DIR>/platform/vita ${pthread_tools} PREFIX=${CMAKE_INSTALL_PREFIX}/${target_arch} install
     # Save the commit id for tracking purposes
     COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> rev-parse HEAD > ${CMAKE_BINARY_DIR}/pthread-embedded-version.txt
     ${UPDATE_DISCONNECTED_SUPPORT}
@@ -598,11 +604,12 @@ ExternalProject_Add(pthread-embedded
 
 ExternalProject_add(gcc-final
     DEPENDS gmp_${target_suffix} mpfr_${target_suffix} mpc_${target_suffix} isl_${target_suffix} libelf_${target_suffix}
-    DEPENDS newlib ${GCC_DEPENDS} pthread-embedded
+    DEPENDS newlib ${GCC_DEPENDS} pthread-embedded vita-headers
     URL http://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz
     URL_HASH ${GCC_HASH}
     DOWNLOAD_DIR ${DOWNLOAD_DIR}
-    PATCH_COMMAND patch -d <SOURCE_DIR> -p1 -t -N < ${PROJECT_SOURCE_DIR}/patches/gcc/0001-gcc-8.patch
+    # git diff -u ee5c3db6c5b2c3332912fb4c9cfa2864569ebd9a >
+    PATCH_COMMAND bash -c "find ${PROJECT_SOURCE_DIR}/patches/gcc-final -type f -name '*.patch' -print0 | sort -z | xargs -t -0 -n 1 patch -d <SOURCE_DIR> -N -t -p1 -i"
     CONFIGURE_COMMAND ${compiler_flags} ${toolchain_tools} ${compiler_target_tools}
     ${wrapper_command} <SOURCE_DIR>/configure
     --build=${build_native}
@@ -618,8 +625,8 @@ ExternalProject_add(gcc-final
     --with-isl=${toolchain_target_depends_dir}
     --with-libelf=${toolchain_target_depends_dir}
     ${common_gcc_configure_args}
-    --with-headers=yes
     --enable-threads=posix
+    --with-headers=yes
     "CFLAGS=${GCC_CFLAGS}"
     "CXXFLAGS=${GCC_CFLAGS}"
     BUILD_COMMAND ${toolchain_tools} ${compiler_target_tools} ${wrapper_command}
@@ -633,60 +640,7 @@ ExternalProject_add(gcc-final
     -P ${CMAKE_SOURCE_DIR}/cmake/remove_files.cmake
     )
 
-ExternalProject_Add(samples
-    GIT_REPOSITORY https://github.com/vitasdk/samples
-    GIT_TAG ${SAMPLES_TAG}
-    ${GIT_SHALLOW_SUPPORT}
-    BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ${CMAKE_COMMAND}
-    -DGLOB_PATTERN=<SOURCE_DIR> -DINSTALL_DIR=${CMAKE_INSTALL_PREFIX}/share/gcc-${target_arch}
-    -P ${CMAKE_SOURCE_DIR}/cmake/install_files.cmake
-    # Save the commit id for tracking purposes
-    COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> rev-parse HEAD > ${CMAKE_BINARY_DIR}/samples-version.txt
-    ${UPDATE_DISCONNECTED_SUPPORT}
-    )
-
-ExternalProject_Add(vdpm
-    GIT_REPOSITORY https://github.com/vitasdk/vdpm.git
-    GIT_TAG ${VDPM_TAG}
-    ${GIT_SHALLOW_SUPPORT}
-    BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_PREFIX}/bin/
-    COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/include ${CMAKE_INSTALL_PREFIX}/bin/include
-    COMMAND ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/vdpm ${CMAKE_INSTALL_PREFIX}/bin/
-    COMMAND ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/vitasdk-update ${CMAKE_INSTALL_PREFIX}/bin/
-    ${UPDATE_DISCONNECTED_SUPPORT}
-    )
-
-ExternalProject_Add(vita-makepkg
-    GIT_REPOSITORY https://github.com/vitasdk/vita-makepkg.git
-    GIT_TAG ${VITA_MAKEPKG_TAG}
-    ${GIT_SHALLOW_SUPPORT}
-    BUILD_IN_SOURCE 1
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_PREFIX}/bin/
-    COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/libmakepkg ${CMAKE_INSTALL_PREFIX}/bin/libmakepkg
-    COMMAND ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/vita-makepkg ${CMAKE_INSTALL_PREFIX}/bin/
-    COMMAND ${CMAKE_COMMAND} -E copy <SOURCE_DIR>/makepkg.conf.sample ${CMAKE_INSTALL_PREFIX}/bin/makepkg.conf
-    ${UPDATE_DISCONNECTED_SUPPORT}
-    )
-
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-    getgcclib(libwinpthread-1.dll WINPTHREAD_DLL)
-    if(WINPTHREAD_DLL)
-        add_custom_command(TARGET gcc-final POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy ${WINPTHREAD_DLL} ${CMAKE_INSTALL_PREFIX}/bin/
-            COMMENT "Copying libwinpthread-1.dll"
-            )
-    endif(WINPTHREAD_DLL)
-endif()
-
-# Strip toolchain binaries to reduce filesize
+    # Strip toolchain binaries to reduce filesize
 add_custom_command(TARGET gcc-final POST_BUILD
     COMMAND ${CMAKE_COMMAND} -DHOST_SYSTEM_NAME=${CMAKE_HOST_SYSTEM_NAME}
     -DBINDIR=${CMAKE_INSTALL_PREFIX}/bin
@@ -722,16 +676,16 @@ set(version_info_file ${CMAKE_INSTALL_PREFIX}/version_info.txt)
 add_custom_command(OUTPUT ${version_info_file}
     COMMAND ${CMAKE_COMMAND} -DINPUT_DIR=${CMAKE_BINARY_DIR} -DOUTPUT_FILE=${version_info_file}
     -P ${CMAKE_SOURCE_DIR}/cmake/create_version.cmake
-    DEPENDS vita-headers vita-toolchain_${target_suffix} newlib pthread-embedded samples
+    DEPENDS vita-headers vita-toolchain_${target_suffix} newlib pthread-embedded vita-headers
     COMMENT "Creating version_info.txt"
     )
 
-add_custom_command(OUTPUT "vitasdk-${host_native}-${build_date}.tar.bz2"
-    COMMAND ${CMAKE_COMMAND} -E tar "cfvj" "vitasdk-${host_native}-${build_date}.tar.bz2" "${CMAKE_INSTALL_PREFIX}"
-    DEPENDS vita-toolchain_${target_suffix} binutils_${target_suffix} gdb_${target_suffix} vita-headers newlib pthread-embedded samples vdpm vita-makepkg
+add_custom_command(OUTPUT "psp2cldr_sdk-${host_native}-${build_date}.tar.bz2"
+    COMMAND ${CMAKE_COMMAND} -E tar "cfvj" "psp2cldr_sdk-${host_native}-${build_date}.tar.bz2" "${CMAKE_INSTALL_PREFIX}"
+    DEPENDS vita-toolchain_${target_suffix} binutils_${target_suffix} gdb_${target_suffix} vita-headers newlib pthread-embedded
     DEPENDS gcc-final ${version_info_file}
-    COMMENT "Creating vitasdk-${host_os}-${build_date}.tar.bz2"
+    COMMENT "Creating psp2cldr_sdk-${host_os}-${build_date}.tar.bz2"
     )
 
 # Create a sdk tarball
-add_custom_target(tarball DEPENDS "vitasdk-${host_native}-${build_date}.tar.bz2")
+add_custom_target(tarball DEPENDS "psp2cldr_sdk-${host_native}-${build_date}.tar.bz2")
