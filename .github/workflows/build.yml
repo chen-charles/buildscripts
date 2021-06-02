@@ -14,8 +14,8 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install dependencies
       run: |
-        sudo apt update
-        sudo apt install -y cmake git build-essential autoconf texinfo bison flex pkg-config wget bash
+        apt update
+        apt install -y cmake git build-essential autoconf texinfo bison flex pkg-config wget bash
     - name: Build
       run: |
         git config --global user.email "builds@travis-ci.com"
