@@ -431,7 +431,6 @@ set(common_gcc_configure_args
     --enable-languages=c,c++
     --disable-decimal-float
     --disable-libffi
-    --disable-libgomp
     --disable-libmudflap
     --disable-libquadmath
     --disable-libstdcxx-pch
@@ -479,6 +478,7 @@ ExternalProject_add(gcc-base
     --disable-threads
     --without-headers
     --disable-shared
+    --disable-libgomp
     "CFLAGS=${GCC_CFLAGS}"
     "CXXFLAGS=${GCC_CFLAGS}"
     BUILD_COMMAND $(MAKE) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0" all-gcc all-target-libgcc
@@ -502,6 +502,9 @@ ExternalProject_add(vita-headers
     # Copy the include headers to the installation directory
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_PREFIX}/${target_arch}/include
     COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/include ${CMAKE_INSTALL_PREFIX}/${target_arch}/include
+    # Copy the generated .a files to the toolchain directory (required for libgomp target)
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${toolchain_build_install_dir}/${target_arch}/lib
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_INSTALL_PREFIX}/${target_arch}/lib ${toolchain_build_install_dir}/${target_arch}/lib
     # Install a copy of the headers in the toolchain directory (required for pthread-embedded target)
     COMMAND ${CMAKE_COMMAND} -E make_directory ${toolchain_build_install_dir}/${target_arch}/include
     COMMAND ${CMAKE_COMMAND} -E copy_directory <SOURCE_DIR>/include ${toolchain_build_install_dir}/${target_arch}/include
@@ -577,6 +580,7 @@ if(CMAKE_TOOLCHAIN_FILE)
         --disable-threads
         --with-headers=yes
         --disable-shared
+        --disable-libgomp
         "CFLAGS=${GCC_CFLAGS}"
         "CXXFLAGS=${GCC_CFLAGS}"
         BUILD_COMMAND ${toolchain_tools} ${wrapper_command} $(MAKE) INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"
@@ -599,7 +603,9 @@ ExternalProject_Add(pthread-embedded
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ${compiler_flags} ${wrapper_command} $(MAKE)
     -C <SOURCE_DIR>/platform/vita ${pthread_tools} PREFIX=${CMAKE_INSTALL_PREFIX} all
-    INSTALL_COMMAND $(MAKE) -C <SOURCE_DIR>/platform/vita ${pthread_tools} PREFIX=${CMAKE_INSTALL_PREFIX}/${target_arch} install
+    INSTALL_COMMAND $(MAKE) -C <SOURCE_DIR>/platform/vita PREFIX=${CMAKE_INSTALL_PREFIX}/${target_arch} install
+    # Install into the toolchain directory (required for libgomp target)
+    COMMAND $(MAKE) install -C <SOURCE_DIR>/platform/vita PREFIX=${toolchain_build_install_dir}/${target_arch} install
     # Save the commit id for tracking purposes
     COMMAND ${GIT_EXECUTABLE} -C <SOURCE_DIR> rev-parse HEAD > ${CMAKE_BINARY_DIR}/pthread-embedded-version.txt
     ${UPDATE_DISCONNECTED_SUPPORT}
@@ -630,6 +636,7 @@ ExternalProject_add(gcc-final
     ${common_gcc_configure_args}
     --enable-threads=posix
     --with-headers=yes
+    --enable-libgomp
     "CFLAGS=${GCC_CFLAGS}"
     "CXXFLAGS=${GCC_CFLAGS}"
     BUILD_COMMAND ${toolchain_tools} ${compiler_target_tools} ${wrapper_command}
