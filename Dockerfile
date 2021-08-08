@@ -1,7 +1,8 @@
 FROM ubuntu:focal
 
 RUN DEBIAN_FRONTEND="noninteractive" apt update
-RUN DEBIAN_FRONTEND="noninteractive" apt install -y cmake git build-essential autoconf texinfo bison flex pkg-config wget bash
+RUN DEBIAN_FRONTEND="noninteractive" apt install -y cmake git build-essential autoconf texinfo bison flex pkg-config wget bash python3
+RUN ln -sf python3 /usr/bin/python
 
 COPY . /src
 RUN mkdir build && cd build && cmake ../src && make -j$(nproc)

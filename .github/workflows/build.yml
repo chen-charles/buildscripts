@@ -15,7 +15,8 @@ jobs:
     - name: Install dependencies
       run: |
         apt update
-        apt install -y cmake git build-essential autoconf texinfo bison flex pkg-config wget bash
+        apt install -y cmake git build-essential autoconf texinfo bison flex pkg-config wget bash python3
+        ln -sf python3 /usr/bin/python
     - name: Build
       run: |
         git config --global user.email "builds@travis-ci.com"
