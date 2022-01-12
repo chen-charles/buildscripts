@@ -534,7 +534,6 @@ ExternalProject_Add(newlib
     --enable-newlib-register-fini
     --enable-newlib-mb
     --disable-newlib-supplied-syscalls
-    --enable-newlib-long-time_t
     --disable-nls
     BUILD_COMMAND ${compiler_flags} ${toolchain_tools} ${wrapper_command} $(MAKE)
 
