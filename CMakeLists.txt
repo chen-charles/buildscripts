@@ -255,7 +255,7 @@ function(toolchain_deps toolchain_deps_dir toolchain_install_dir toolchain_suffi
 
     ExternalProject_add(isl${suffix}
         DEPENDS gmp${suffix}
-        URL http://isl.gforge.inria.fr/isl-${ISL_VERSION}.tar.xz
+        URL http://downloads.sourceforge.net/project/libisl/isl-${ISL_VERSION}.tar.xz
         URL_HASH ${ISL_HASH}
         DOWNLOAD_DIR ${DOWNLOAD_DIR}
         CONFIGURE_COMMAND ${compiler_flags} ${wrapper_command} <SOURCE_DIR>/configure
@@ -648,8 +648,7 @@ ExternalProject_add(gcc-final
     COMMAND ${CMAKE_COMMAND} -DGLOB_PATTERN=${CMAKE_INSTALL_PREFIX}/*.la
     -P ${CMAKE_SOURCE_DIR}/cmake/remove_files.cmake
     )
-
-    # Strip toolchain binaries to reduce filesize
+     # Strip toolchain binaries to reduce filesize
 add_custom_command(TARGET gcc-final POST_BUILD
     COMMAND ${CMAKE_COMMAND} -DHOST_SYSTEM_NAME=${CMAKE_HOST_SYSTEM_NAME}
     -DBINDIR=${CMAKE_INSTALL_PREFIX}/bin
