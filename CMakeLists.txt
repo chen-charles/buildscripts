@@ -523,7 +523,7 @@ ExternalProject_Add(newlib
     ${GIT_SHALLOW_SUPPORT}
     # Pass the compiler_target_tools here so newlib picks up the fresh gcc-base compiler
     CONFIGURE_COMMAND ${compiler_flags} ${toolchain_tools} ${compiler_target_tools}
-    ${wrapper_command} <SOURCE_DIR>/configure "CFLAGS_FOR_TARGET=-g -O2 -fPIC -ffunction-sections -fdata-sections -D_LDBL_EQ_DBL"
+    ${wrapper_command} <SOURCE_DIR>/configure "CFLAGS_FOR_TARGET=-O3 -fPIC -ffunction-sections -fdata-sections -D_LDBL_EQ_DBL"
     --build=${build_native}
     --host=${host_native}
     --target=${target_arch}
