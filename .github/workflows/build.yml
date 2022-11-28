@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ubuntu:bionic
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Install dependencies
       run: |
         apt update
@@ -27,7 +27,26 @@ jobs:
         make -j$(nproc) tarball
     - name: Upload artifacts
       if: ${{ success() }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: psp2cldr_sdk-linux
         path: build/*.tar.bz2
+
+  release:
+    needs: [build-linux]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: psp2cldr_sdk-linux
+
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "continuous"
+          title: "Automated Release ${{ github.run_number }}"
+          prerelease: false
+          files: |
+            *.tar.bz2
