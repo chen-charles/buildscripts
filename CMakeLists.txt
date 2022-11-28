@@ -32,8 +32,8 @@ set(MPC_HASH SHA256=6985c538143c1208dcb1ac42cedad6ff52e267b47e5f970183a3e75125b4
 set(ISL_VERSION 0.21)
 set(ISL_HASH SHA256=777058852a3db9500954361e294881214f6ecd4b594c00da5eee974cd6a54960)
 
-set(EXPAT_VERSION 2.4.1)
-set(EXPAT_HASH SHA256=2f9b6a580b94577b150a7d5617ad4643a4301a6616ff459307df3e225bcfbf40)
+set(EXPAT_VERSION 2.5.0)
+set(EXPAT_HASH SHA1=36e29d7192ab8c5ce44d09375318a0a81395aab0)
 
 set(BINUTILS_VERSION 2.34)
 set(BINUTILS_HASH SHA256=f00b0e8803dc9bab1e2165bd568528135be734df3fabf8d0161828cd56028952)
@@ -523,7 +523,7 @@ ExternalProject_Add(newlib
     ${GIT_SHALLOW_SUPPORT}
     # Pass the compiler_target_tools here so newlib picks up the fresh gcc-base compiler
     CONFIGURE_COMMAND ${compiler_flags} ${toolchain_tools} ${compiler_target_tools}
-    ${wrapper_command} <SOURCE_DIR>/configure "CFLAGS_FOR_TARGET=-O3 -fPIC -ffunction-sections -fdata-sections -D_LDBL_EQ_DBL"
+    ${wrapper_command} <SOURCE_DIR>/configure "CFLAGS_FOR_TARGET=-g -O2 -fstack-protector-strong -fPIC -ffunction-sections -fdata-sections -D_LDBL_EQ_DBL"
     --build=${build_native}
     --host=${host_native}
     --target=${target_arch}
@@ -533,6 +533,7 @@ ExternalProject_Add(newlib
     --enable-newlib-io-long-long
     --enable-newlib-register-fini
     --enable-newlib-mb
+    --enable-newlib-retargetable-locking
     --disable-newlib-supplied-syscalls
     --disable-nls
     BUILD_COMMAND ${compiler_flags} ${toolchain_tools} ${wrapper_command} $(MAKE)
