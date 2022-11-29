@@ -45,7 +45,7 @@ set(GDB_HASH SHA256=360cd7ae79b776988e89d8f9a01c985d0b1fa21c767a4295e5f88cb49175
 set(LIBZIP_TAG master CACHE STRING "libzip branch name, commit id or tag")
 set(NEWLIB_TAG 4.1.0 CACHE STRING "newlib branch name, commit id or tag")
 set(SAMPLES_TAG master CACHE STRING "samples branch name, commit id or tag")
-set(HEADERS_TAG master CACHE STRING "vita-headers branch name, commit id or tag")
+set(HEADERS_TAG 4bd4744f8aeef83019c93f4a4d95770148cf9a34 CACHE STRING "vita-headers branch name, commit id or tag")
 set(TOOLCHAIN_TAG master CACHE STRING "vita-toolchain branch name, commit id or tag")
 set(PTHREAD_TAG master CACHE STRING "pthread-embedded branch name, commit id or tag")
 set(VDPM_TAG master CACHE STRING "vdpm branch name, commit id or tag")
@@ -58,7 +58,7 @@ set(OFFLINE YES CACHE BOOL "Check repo updates")
 set(UPDATE_DISCONNECTED_SUPPORT UPDATE_DISCONNECTED ${OFFLINE})
 
 if("${CMAKE_VERSION}" VERSION_GREATER 3.6.0)
-    set(GIT_SHALLOW_SUPPORT GIT_SHALLOW 1)
+    set(GIT_SHALLOW_SUPPORT GIT_SHALLOW 0)  # disable until vita-headers is back stable
 endif()
 
 # Installation directory. Can be overriden from command line.
