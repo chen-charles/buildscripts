@@ -689,12 +689,12 @@ add_custom_command(OUTPUT ${version_info_file}
     COMMENT "Creating version_info.txt"
     )
 
-add_custom_command(OUTPUT "psp2cldr_sdk-${host_native}-${build_date}.tar.bz2"
-    COMMAND ${CMAKE_COMMAND} -E tar "cfvj" "psp2cldr_sdk-${host_native}-${build_date}.tar.bz2" "${CMAKE_INSTALL_PREFIX}"
+add_custom_command(OUTPUT "psp2cldr_sdk-${host_native}.tar.bz2"
+    COMMAND ${CMAKE_COMMAND} -E tar "cfvj" "psp2cldr_sdk-${host_native}.tar.bz2" "${CMAKE_INSTALL_PREFIX}"
     DEPENDS vita-toolchain_${target_suffix} binutils_${target_suffix} gdb_${target_suffix} vita-headers newlib pthread-embedded
     DEPENDS gcc-final ${version_info_file}
-    COMMENT "Creating psp2cldr_sdk-${host_os}-${build_date}.tar.bz2"
+    COMMENT "Creating psp2cldr_sdk-${host_os}.tar.bz2"
     )
 
 # Create a sdk tarball
-add_custom_target(tarball DEPENDS "psp2cldr_sdk-${host_native}-${build_date}.tar.bz2")
+add_custom_target(tarball DEPENDS "psp2cldr_sdk-${host_native}.tar.bz2")
